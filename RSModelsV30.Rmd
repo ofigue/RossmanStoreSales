@@ -1,0 +1,213 @@
+---
+title: "RSModelsV20"
+author: "Oswaldo F. Domejean"
+date: "November 27, 2015"
+output: word_document
+---
+
+Evaluation function
+
+```{r}
+RMPSE<- function(preds, dtrain) {
+  labels <- getinfo(dtrain, "label")
+  elab<-exp(as.numeric(labels))-1
+  epreds<-exp(as.numeric(preds))-1
+  err <- sqrt(mean((epreds/elab-1)^2))
+  return(list(metric = "RMPSE", value = err))
+}
+```
+
+Model XGBoost
+
+```{r}
+
+dval<-xgb.DMatrix(data=data.matrix(RStrain[split,]),label=log(train$Sales+1)[split])
+dtrain<-xgb.DMatrix(data=data.matrix(RStrain[-split,]),label=log(train$Sales+1)[-split])
+watchlist<-list(eval=dval,train=dtrain)
+param <- list(  objective           = "reg:linear", 
+                booster = "gbtree",
+                eta                 = 0.1, # 0.25, #0.01,
+                max_depth           = 8 #changed from default of 8
+                # subsample           = 0.7,
+                # colsample_bytree    = 0.7
+                
+                # alpha = 0.0001, 
+                # lambda = 1
+)
+
+RSXGBoost <- xgb.train(   params              = param, 
+                    data                = dtrain, 
+                    nrounds             = 1500, #300, #280, #125, #250, #300,
+                    verbose             = 1,
+                    early.stop.round    = 30,
+                    watchlist           = watchlist,
+                    maximize            = FALSE,
+                    feval=RMPSE
+)
+
+# Prediction
+RSXGBpred <- exp(predict(RSXGBoost, data.matrix(RStest))) -1
+
+# Importance of variables
+xgb.importance(feature_names = train.names, model = RSXGBoost)
+p.train <- exp(predict(RSXGBoost, data.matrix(RStrain))) -1
+RMPSE(p.train, dtrain)
+
+```
+
+Model Random Forest
+
+```{r}
+RSRandomForest <- randomForest(RStrain, 
+                    log(train$Sales+1),
+                    mtry=5,
+                    ntree=50,
+                    sampsize=700000,
+                    do.trace=TRUE)
+
+# model stats
+RSRandomForest
+# print model
+print(RSRandomForest)
+# Importance
+importance(RSRandomForest)
+# Permutation Importance Unscaled
+importance(RSRandomForest, type = 1)
+# GINI Importance
+importance(RSRandomForest, type = 2)
+# Plot Model
+plot(RSRandomForest)
+# Plot Importance
+plot(importance(RSRandomForest), lty=2, pch=16)
+
+# Predicting Sales
+
+RSRFpred <- exp(predict(RSRandomForest, RStest)) -1
+
+```
+
+Model Linear Regresion
+
+```{r}
+k=5
+n = floor(nrow(RStrain1)/k)
+err.vect=rep(NA,k)
+
+i=1 # The folds can be changed  from 1 to 10 in order to have diff test sets
+s1=((i-1)*n+1)
+s2=(i*n)
+subset=s1:s2
+cv.train=RStrain1[-subset,]
+cv.test=RStrain1[subset,]
+
+for (i in 1:k)
+{
+  s1=((i-1)*n+1)
+  s2=(i*n)
+  subset=s1:s2
+  cv.train=RStrain1[-subset,]
+  cv.test=RStrain1[subset,]
+  
+  # Run the model - Begin
+  
+  RSLinReg <- lm(cv.train[,3] ~. -PromoInterval, data = cv.train[,-3])
+  RSLRPred <- predict(RSLinReg, newdata=cv.test)
+  
+  rse <- sqrt( sum(residuals(RSLinReg)^2) / RSLinReg$df.residual )  
+  err.vect[i] = rse
+  print(paste("RSE for fold", i, ":",err.vect[i]))
+}
+print(paste("Average RSE:", mean(err.vect)))
+
+RSLRPred <- predict(RSLinReg, newdata=RStest)
+
+```
+
+
+Model GLMNET
+
+```{r}
+# For train
+# the feature have comma in name, it's changed by _
+RStrain$PromoInterval <- gsub(",", "_", RStrain$PromoInterval)
+RStrain$PromoInterval <- as.factor(RStrain$PromoInterval)
+
+# Dummy StoreType, Assortment, PromoInterval
+dmy <- dummyVars(" ~ StoreType", data=RStrain)
+dmyVars <- data.frame(predict(dmy, newdata = RStrain))
+RStrain <- cbind(RStrain, dmyVars)
+RStrain$StoreType = NULL
+
+dmy <- dummyVars(" ~ Assortment", data=RStrain)
+dmyVars <- data.frame(predict(dmy, newdata = RStrain))
+RStrain <- cbind(RStrain, dmyVars)
+RStrain$Assortment = NULL
+
+dmy <- dummyVars(" ~ PromoInterval", data=RStrain)
+dmyVars <- data.frame(predict(dmy, newdata = RStrain))
+RStrain <- cbind(RStrain, dmyVars)
+RStrain$PromoInterval = NULL
+rm(dmyVars)
+
+# For test
+# the feature have comma in name, it's changed by _
+RStest$PromoInterval <- gsub(",", "_", RStest$PromoInterval)
+RStest$PromoInterval <- as.factor(RStest$PromoInterval)
+
+# Dummy StoreType, Assortment, PromoInterval
+dmy <- dummyVars(" ~ StoreType", data=RStest)
+dmyVars <- data.frame(predict(dmy, newdata = RStest))
+RStest <- cbind(RStest, dmyVars)
+RStest$StoreType = NULL
+
+dmy <- dummyVars(" ~ Assortment", data=RStest)
+dmyVars <- data.frame(predict(dmy, newdata = RStest))
+RStest <- cbind(RStest, dmyVars)
+RStest$Assortment = NULL
+
+dmy <- dummyVars(" ~ PromoInterval", data=RStest)
+dmyVars <- data.frame(predict(dmy, newdata = RStest))
+RStest <- cbind(RStest, dmyVars)
+RStest$PromoInterval = NULL
+rm(dmyVars)
+
+Sales1 = train$Sales[split]
+RStrainMatrix <- sparse.model.matrix(~., RStrain[split,])
+RStestMatrix <- sparse.model.matrix(~., RStest)
+
+RSglmnet <- glmnet(RStrainMatrix, Sales1)
+RSGLMPred <- predict(RSglmnet, RStestMatrix)
+
+RSglmnetCV <- cv.glmnet(RStrainMatrix, Sales1, nfolds=5)
+RSGLMPredCV <- predict(RSglmnetCV, RStrainMatrix,type="response", s=RSglmnetCV$lambda.min)
+
+```
+
+Ensemble learning
+
+```{r}
+
+Modelos <- cbind(as.data.frame(RSXGBpred), as.data.frame(RSRFpred)),
+              as.data.frame(RSLRPred))
+
+Modelos$Sales <- rowMeans(Modelos)
+
+
+
+a <- cbind(as.data.frame(RSXGBpred), as.data.frame(RSRFpred),
+                as.data.frame(RSLRPred)), as.data.frame(RSGLMPredCV))
+
+
+
+```
+
+Submission
+
+```{r}
+submission <- data.frame(Id=test$Id, Sales=Modelos$Sales)
+cat("saving the submission file\n")
+write.csv(submission, "RSensemble.csv", row.names = FALSE)
+
+```
+
+

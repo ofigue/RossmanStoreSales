@@ -1,0 +1,84 @@
+---
+title: "RSDatosV20"
+author: "Oswaldo F. Domejean"
+date: "November 27, 2015"
+output: word_document
+---
+
+Libraries
+
+```{r}
+library(readr)
+library(lubridate)
+library(dplyr)
+library(xgboost)
+library(randomForest)
+library(caret)
+library(Matrix)
+library(glmnet)
+```
+
+Set working directory
+
+```{r}
+# Mac
+setwd("~/Dropbox/Documents To Go/Kaggle/Rossman Store Sales")
+#Win
+setwd("C:/Users/Ing-Figueroa/Dropbox/Documents To Go/Kaggle/Rossman Store Sales")
+```
+
+Data loading
+```{r}
+train <- read.csv("train.csv")
+test  <- read.csv("test.csv")
+store <- read.csv("store.csv")
+train <- merge(train,store)
+test <- merge(test,store)
+rm(store)
+```
+
+
+DATA TRANSFORMATION
+
+```{r}
+train[is.na(train)]   <- 0
+test[is.na(test)]   <- 0
+
+#Date convertion
+
+fecha =as.character(train$Date)
+DateConvert = strptime(fecha, format="%Y-%m-%d")
+train$year = as.numeric(year(as.Date(DateConvert)))
+train$month = as.numeric(month(as.Date(DateConvert)))
+train$day = as.numeric(day(as.Date(DateConvert)))
+# train$Date = NULL
+
+fecha =as.character(test$Date)
+DateConvert = strptime(fecha, format="%Y-%m-%d")
+test$year = as.numeric(year(as.Date(DateConvert)))
+test$month = as.numeric(month(as.Date(DateConvert)))
+test$day = as.numeric(day(as.Date(DateConvert)))
+# test$Date = NULL
+
+train <- train[ which(train$Open=='1'),]
+train <- train[ which(train$Sales!='0'),]
+
+test$Open[is.na(test$Open)] <- 1  # Assume these stores are open
+
+
+# removing the date column (since elements are extracted) and also StateHoliday which has a lot of NAs (may add it back in later)
+train <- train[,-c(3,8)]
+test <- test[,-c(4,7)]
+
+train.names <- names(train)[c(1,2,6:19)]
+test.names = names(test)[c(1,3,5:18)]
+
+RStrain<-train[,train.names]
+RStest<-test[,test.names]
+split<-sample(nrow(train),10000)
+RStrain1 <- train[c(1,2,3,6:19)]
+
+
+```
+
+

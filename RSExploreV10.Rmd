@@ -1,0 +1,518 @@
+---
+title: "RSData"
+author: "Oswaldo F. Domejean"
+date: "October 18, 2015"
+output: word_document
+---
+
+Libraries
+```{r}
+library(readr)
+library(lubridate)
+library(ggplot2)
+library(dplyr)
+library(vcd)
+library(sqldf)
+library(caret)
+
+```
+
+Data loading
+
+```{r, echo=FALSE}
+# Mac
+setwd("~/Dropbox/Documents To Go/Kaggle/Rossman Store Sales")
+#Win
+setwd("C:/Users/Ing-Figueroa/Dropbox/Documents To Go/Kaggle/Rossman Store Sales")
+
+train <- read.csv("train.csv")
+test  <- read.csv("test.csv")
+store <- read.csv("store.csv")
+train <- merge(train,store)
+test <- merge(test,store)
+
+```
+
+Date convertion
+```{r}
+fecha =as.character(train$Date)
+DateConvert = strptime(fecha, format="%Y-%m-%d")
+train$year = as.numeric(year(as.Date(DateConvert)))
+train$month = as.numeric(month(as.Date(DateConvert)))
+train$day = as.numeric(day(as.Date(DateConvert)))
+# train$Date = NULL
+
+fecha =as.character(test$Date)
+DateConvert = strptime(fecha, format="%Y-%m-%d")
+test$year = as.numeric(year(as.Date(DateConvert)))
+test$month = as.numeric(month(as.Date(DateConvert)))
+test$day = as.numeric(day(as.Date(DateConvert)))
+# test$Date = NULL
+```
+
+Change number days of week by name of day of week
+```{r}
+train$DayOfWeek = as.factor(train$DayOfWeek)
+levels(train$DayOfWeek) <- c(levels(train$DayOfWeek), "Monday")
+levels(train$DayOfWeek) <- c(levels(train$DayOfWeek), "Tuesday")
+levels(train$DayOfWeek) <- c(levels(train$DayOfWeek), "Wednesday")
+levels(train$DayOfWeek) <- c(levels(train$DayOfWeek), "Thursday")
+levels(train$DayOfWeek) <- c(levels(train$DayOfWeek), "Friday")
+levels(train$DayOfWeek) <- c(levels(train$DayOfWeek), "Saturday")
+levels(train$DayOfWeek) <- c(levels(train$DayOfWeek), "Sunday")
+train[train$DayOfWeek == 1,2] = "Monday"
+train[train$DayOfWeek == 2,2] = "Tuesday"
+train[train$DayOfWeek == 3,2] = "Wednesday"
+train[train$DayOfWeek == 4,2] = "Thursday"
+train[train$DayOfWeek == 5,2] = "Friday"
+train[train$DayOfWeek == 6,2] = "Saturday"
+train[train$DayOfWeek == 7,2] = "Sunday"
+train$DayOfWeek = factor(train$DayOfWeek)
+
+test$DayOfWeek = as.factor(test$DayOfWeek)
+levels(test$DayOfWeek) <- c(levels(test$DayOfWeek), "Monday")
+levels(test$DayOfWeek) <- c(levels(test$DayOfWeek), "Tuesday")
+levels(test$DayOfWeek) <- c(levels(test$DayOfWeek), "Wednesday")
+levels(test$DayOfWeek) <- c(levels(test$DayOfWeek), "Thursday")
+levels(test$DayOfWeek) <- c(levels(test$DayOfWeek), "Friday")
+levels(test$DayOfWeek) <- c(levels(test$DayOfWeek), "Saturday")
+levels(test$DayOfWeek) <- c(levels(test$DayOfWeek), "Sunday")
+test[test$DayOfWeek == 1,3] = "Monday"
+test[test$DayOfWeek == 2,3] = "Tuesday"
+test[test$DayOfWeek == 3,3] = "Wednesday"
+test[test$DayOfWeek == 4,3] = "Thursday"
+test[test$DayOfWeek == 5,3] = "Friday"
+test[test$DayOfWeek == 6,3] = "Saturday"
+test[test$DayOfWeek == 7,3] = "Sunday"
+test$DayOfWeek = factor(test$DayOfWeek)
+
+train$Open = as.factor(train$Open)
+test$Open = as.factor(test$Open)
+
+train$Promo = as.factor(train$Promo)
+test$Promo = as.factor(test$Promo)
+
+train$Promo2 = as.factor(train$Promo2)
+test$Promo2 = as.factor(test$Promo2)
+
+train$SchoolHoliday = as.factor(train$SchoolHoliday)
+test$SchoolHoliday = as.factor(test$SchoolHoliday)
+
+train$year = as.factor(train$year)
+test$year = as.factor(test$year)
+
+train$month = as.factor(train$month)
+test$month = as.factor(test$month)
+
+train$day = as.factor(train$day)
+test$day = as.factor(test$day)
+
+train$CompetitionOpenSinceMonth = as.factor(train$CompetitionOpenSinceMonth)
+test$CompetitionOpenSinceMonth = as.factor(test$CompetitionOpenSinceMonth)
+
+train$CompetitionOpenSinceYear = as.factor(train$CompetitionOpenSinceYear)
+test$CompetitionOpenSinceYear = as.factor(test$CompetitionOpenSinceYear)
+
+train$Promo2SinceWeek = as.factor(train$Promo2SinceWeek)
+test$Promo2SinceWeek = as.factor(test$Promo2SinceWeek)
+
+train$Promo2SinceYear = as.factor(train$Promo2SinceYear)
+test$Promo2SinceYear = as.factor(test$Promo2SinceYear)
+
+# PromoInterval has a range of months that had been changed from ex. 'Feb,May,Aug,Nov' to 'M_2_5_8_11' and then it has been used dummy vars to create the corresponding attributes.
+# For train
+levels(train$PromoInterval) <- c(levels(train$PromoInterval), 'M_2_5_8_11')
+train$PromoInterval[train$PromoInterval == 'Feb,May,Aug,Nov'] <- 'M_2_5_8_11'
+
+levels(train$PromoInterval) <- c(levels(train$PromoInterval), 'M_1_4_7_10')
+train$PromoInterval[train$PromoInterval == 'Jan,Apr,Jul,Oct'] <- 'M_1_4_7_10'
+
+levels(train$PromoInterval) <- c(levels(train$PromoInterval), 'M_3_6_9_12')
+train$PromoInterval[train$PromoInterval == 'Mar,Jun,Sept,Dec'] <- 'M_3_6_9_12'
+train$PromoInterval <- factor(train$PromoInterval)
+
+dmy <- dummyVars(" ~ PromoInterval", data = train)
+var1 <- data.frame(predict(dmy, newdata = train))
+train$PromoInterval = NULL
+var1$PromoInterval. = NULL
+train <- cbind(train, var1)
+
+# For test
+levels(test$PromoInterval) <- c(levels(test$PromoInterval), 'M_2_5_8_11')
+test$PromoInterval[test$PromoInterval == 'Feb,May,Aug,Nov'] <- 'M_2_5_8_11'
+
+levels(test$PromoInterval) <- c(levels(test$PromoInterval), 'M_1_4_7_10')
+test$PromoInterval[test$PromoInterval == 'Jan,Apr,Jul,Oct'] <- 'M_1_4_7_10'
+
+levels(test$PromoInterval) <- c(levels(test$PromoInterval), 'M_3_6_9_12')
+test$PromoInterval[test$PromoInterval == 'Mar,Jun,Sept,Dec'] <- 'M_3_6_9_12'
+test$PromoInterval <- factor(test$PromoInterval)
+
+dmy <- dummyVars(" ~ PromoInterval", data = test)
+var1 <- data.frame(predict(dmy, newdata = test))
+test$PromoInterval = NULL
+var1$PromoInterval. = NULL
+test <- cbind(test, var1)
+
+train$ym=as.factor(paste(train$year, train$month, sep="_"))
+
+train$StoreAssort=as.factor(paste(train$StoreType, train$Assortment, sep="_"))
+test$StoreAssort=as.factor(paste(test$StoreType, test$Assortment, sep="_"))
+
+train$AssortStore=as.factor(paste(train$Assortment, train$StoreType, sep="_"))
+test$AssortStore=as.factor(paste(test$Assortment, test$StoreType, sep="_"))
+
+CustStoreMean = train %>%
+  group_by(as.factor(Store)) %>%
+  summarise(promedio=mean(Customers))
+
+names(CustStoreMean) <- c("Store","Customers")
+test <- merge(test, CustStoreMean, by = c("Store"))
+
+#write.csv(train,"trainV1.csv",row.names=F)
+#write.csv(test,"testV1.csv",row.names=F)
+
+#train <- read.csv("trainV1.csv")
+#test  <- read.csv("testV1.csv")
+
+test$Date <- as.Date(test$Date)
+train$Date <- as.Date(train$Date)
+
+# Not sure if this is gonna be useful
+train$daysinperiod <- as.integer(train$Date - min(train$Date))
+test$daysinperiod <- as.integer(test$Date - min(test$Date))
+
+# In the case of customers maybe use proportions in train and test, chek if all the stores exist in test because the proportions are going to be from customer attribute
+
+# Fill CompetitionDistance with the average value
+meanCompetitionDistance <- mean(train$CompetitionDistance, na.rm = TRUE)
+train$CompetitionDistance[is.na(train$CompetitionDistance)] <- meanCompetitionDistance
+meanCompetitionDistance <- mean(test$CompetitionDistance, na.rm = TRUE)
+test$CompetitionDistance[is.na(test$CompetitionDistance)]   <- meanCompetitionDistance
+
+train$CompetitionOpenSinceYear[is.na(train$CompetitionOpenSinceYear)] <- 2009
+test$CompetitionOpenSinceYear[is.na(test$CompetitionOpenSinceYear)] <- 2009
+
+train$CompetitionOpenSinceMonth[is.na(train$CompetitionOpenSinceMonth)] <- 7
+test$CompetitionOpenSinceMonth[is.na(test$CompetitionOpenSinceMonth)] <- 7
+
+train$Promo2SinceWeek[is.na(train$Promo2SinceWeek)] <- 27
+test$Promo2SinceWeek[is.na(test$Promo2SinceWeek)] <- 27
+
+train$Promo2SinceYear[is.na(train$Promo2SinceYear)] <- 2012
+test$Promo2SinceYear[is.na(test$Promo2SinceYear)] <- 2012
+
+#test[is.na(test$Open),] # These are weird
+test$Open[is.na(test$Open)] <- 1  # Assume these stores are open
+
+rm(CustStoreMean, store, var1)
+rm(DateConvert, dmy, fecha)
+
+
+```
+
+Exploring the data
+
+```{r}
+str(train)
+summary(train)
+length(unique(train$Assortment))
+# stores that are not in the test data
+sum(!(unique(train$Store) %in% unique(test$Store))) 
+table(train$Open) / nrow(train) # Percent Open Train
+train$Open = as.factor(train$Open)
+```
+
+Exploring one variable
+
+
+```{r}
+unique(as.factor(train$Store))
+
+qplot(as.factor(DayOfWeek), data=train)
+qplot(Sales, data=train)
+qplot(Sales, data=train, geom = "density")
+qplot(Open, data = train)
+qplot(Promo, data = train)
+qplot(StateHoliday, data = train)
+qplot(SchoolHoliday, data = train)
+qplot(StoreType, data = train)
+qplot(Assortment, data = train)
+qplot(CompetitionDistance, data = train, geom="density")
+qplot(CompetitionOpenSinceMonth, data = train)
+qplot(CompetitionOpenSinceYear, data = train)
+qplot(Promo2, data = train)
+qplot(Promo2SinceWeek, data = train)
+qplot(Promo2SinceYear, data = train)
+qplot(PromoInterval, data = train)
+qplot(year, data = train)
+qplot(month, data = train)
+qplot(day, data = train)
+
+qplot(as.factor(DayOfWeek), data=test)
+qplot(Open, data = test)
+qplot(Promo, data = test)
+qplot(StateHoliday, data = test)
+qplot(SchoolHoliday, data = test)
+qplot(StoreType, data = test)
+qplot(Assortment, data = test)
+qplot(CompetitionDistance, data = test)
+qplot(CompetitionOpenSinceMonth, data = test)
+qplot(CompetitionOpenSinceYear, data = test)
+qplot(Promo2, data = test)
+qplot(Promo2SinceWeek, data = test)
+qplot(Promo2SinceYear, data = test)
+qplot(PromoInterval, data = test)
+qplot(year, data = test)
+qplot(month, data = test)
+qplot(day, data = test)
+
+```
+
+Exploring two variables
+When Open is 0 (closed Store), Sales equals 0
+17% in train is with Sales equals 0.
+About assortment the levels a ad c have the highest sales, and maybe
+divide the data set by using a and c,and other data set for b
+54 stores have zero sales when they are open
+
+```{r}
+
+qplot(DayOfWeek, Sales, data = train)
+ggplot(train, aes(x = StoreType, y = Sales)) + geom_bar(stat = "identity")
+ggplot(train, aes(x = Assortment, y = Sales)) + geom_bar(stat = "identity")
+qplot(Promo, Sales, data = train)
+qplot(Promo2, Sales, data = train)
+qplot(Promo, Sales/10, data = train)
+qplot(Promo2, Sales/10, data = train)
+qplot(StateHoliday, Sales/10, data = train)
+qplot(SchoolHoliday, Sales/10, data = train)
+
+# Competition distance vs sales
+qplot(CompetitionDistance/100, Sales/100, data = train, geom = c("point", "smooth"))
+
+```
+
+Exploring three variables
+```{r}
+
+structable(StoreType+Assortment~Sales, train)
+table(train$Open, train$StateHoliday)
+table(train$StateHoliday, train$SchoolHoliday, train$Open)
+structable(SchoolHoliday+StateHoliday~Open, train)
+
+train %>%
+  group_by(DayOfWeek) %>%
+  summarise(total=sum(Sales/100))
+
+train %>%
+  group_by(Assortment) %>%
+  summarise(total=sum(Sales/10))
+
+train %>%
+  group_by(StoreType) %>%
+  summarise(total=sum(Sales/10))
+
+train %>%
+  group_by(Assortment) %>%
+  summarise(total=mean(Sales))
+
+train %>%
+  group_by(StoreType) %>%
+  summarise(total=mean(Sales))
+
+select(train, Date, StoreType, Sales) %>%
+  filter(Sales != 0) %>%
+  group_by(as.Date(Date), StoreType) %>%
+  summarise(total=sum(Sales/10))
+
+train %>%
+  group_by(Open) %>%
+  summarise(total=mean(Sales))
+
+train %>%
+  group_by(Promo2) %>%
+  summarise(total=sum(Sales/10))
+
+select(train, StoreType, Promo, Sales) %>%
+  group_by(StoreType, Promo) %>%
+  summarise(total=sum(Sales))
+
+select(train, Assortment, Promo, Sales) %>%
+  group_by(Assortment, Promo) %>%
+  summarise(total=sum(Sales))
+
+select(train, StoreType, Assortment, Sales) %>%
+  group_by(StoreType, Assortment) %>%
+  summarise(total=sum(Sales))
+
+select(train, Assortment, StoreType, Sales) %>%
+  group_by(Assortment, StoreType) %>%
+  summarise(total=sum(Sales))
+
+select(train, StateHoliday, StoreType, Sales) %>%
+  group_by(StateHoliday, StoreType) %>%
+  summarise(total=sum(Sales))
+
+select(train, StoreType, StateHoliday, Sales) %>%
+  group_by(StoreType, StateHoliday) %>%
+  summarise(total=sum(Sales))
+
+train %>%
+  filter(Sales != 0) %>%
+  ggplot(aes(x=as.Date(Date), y = Sales, color = StoreType)) +
+  geom_smooth(size = 2)
+
+train %>%
+  filter(Customers != 0) %>%
+  ggplot(aes(x=as.Date(Date), y = Customers, color = StoreType)) +
+  geom_smooth(size =2)
+
+train %>%
+  filter(Sales != 0) %>%
+  ggplot(aes(x = as.Date(Date), y = Sales, color = Assortment)) +
+  geom_smooth(size = 2)
+
+train %>%
+  filter(Customers != 0) %>%
+  ggplot(aes(x = as.Date(Date), y = Customers, color = Assortment)) +
+  geom_smooth(size = 2)
+
+alfa = select(train, year, month, Sales) %>%
+  group_by(month, year) %>%
+  summarise(total = sum(Sales))
+
+ggplot(data=alfa,
+       aes(x=month, y=total, color=year)) +
+       geom_line(aes(group=year))
+
+train %>%
+  filter(Sales != 0) %>%
+  ggplot(aes(x = as.Date(Date), y = Sales, color = Assortment)) +
+  geom_smooth(size = 2)
+
+# Total sales by StoreType and Assortment
+select(train, ym, StoreType, Sales) %>%
+  filter(Sales != 0) %>%
+  group_by(ym, StoreType) %>%
+  summarise(total = sum(Sales)) %>%
+  ggplot(aes(x = ym, y = total, group = StoreType, color = StoreType)) +
+  geom_line() + geom_point()
+
+select(train, ym, Assortment, Sales) %>%
+  filter(Sales != 0) %>%
+  group_by(ym, Assortment) %>%
+  summarise(total = sum(Sales)) %>%
+  ggplot(aes(x = ym, y = total, group = Assortment, color = Assortment)) +
+  geom_line() + geom_point()
+
+# Mean sales by StoreType and Assortment
+select(train, ym, StoreType, Sales) %>%
+  filter(Sales != 0) %>%
+  group_by(ym, StoreType) %>%
+  summarise(total = mean(Sales)) %>%
+  ggplot(aes(x = ym, y = total, group = StoreType, color = StoreType)) +
+  geom_line() + geom_point()
+
+select(train, ym, Assortment, Sales) %>%
+  filter(Sales != 0) %>%
+  group_by(ym, Assortment) %>%
+  summarise(total = mean(Sales)) %>%
+  ggplot(aes(x = ym, y = total, group = Assortment, color = Assortment)) +
+  geom_line() + geom_point()
+
+# Total sales by month, year StoreType and Assortment
+select(train, year, month, StoreType, Sales) %>%
+  filter(Sales != 0) %>%
+  group_by(month, year, StoreType) %>%
+  summarise(suma = sum(Sales)) %>%
+  ggplot(aes(x=month, y=suma, color=StoreType)) +
+  geom_line(aes(group=StoreType))
+
+select(train, year, month, Assortment, Sales) %>%
+  filter(Sales != 0) %>%
+  group_by(month, year, Assortment) %>%
+  summarise(suma = sum(Sales)) %>%
+  ggplot(aes(x=month, y=suma, color=Assortment)) +
+  geom_line(aes(group=Assortment))
+
+# Total sum by StoreAssort that is a combination between StoreType and Assortment
+select(train, ym, StoreAssort, Sales) %>%
+  filter(Sales != 0) %>%
+  group_by(ym, StoreAssort) %>%
+  summarise(total = sum(Sales)) %>%
+  ggplot(aes(x = ym, y = total, group = StoreAssort, color = StoreAssort)) +
+  geom_line() + geom_point()
+
+# Total sales by month, year with StoreAssort
+select(train, year, month, StoreAssort, Sales) %>%
+  filter(Sales != 0) %>%
+  group_by(month, year, StoreAssort) %>%
+  summarise(suma = sum(Sales)) %>%
+  ggplot(aes(x = month, y = suma, color = StoreAssort)) +
+  geom_line(aes(group=StoreAssort, linetype=StoreAssort))
+
+# Total sales by day with StoreAssort
+select(train, day, StoreAssort, Sales) %>%
+  filter(Sales != 0) %>%
+  group_by(day, StoreAssort) %>%
+  summarise(suma = sum(Sales)) %>%
+  ggplot(aes(x = day, y = suma, color = StoreAssort)) +
+  geom_line(aes(group=StoreAssort, linetype=StoreAssort))
+
+# Total sum by AssortStore that is a combination between StoreType and Assortment
+select(train, ym, AssortStore, Sales) %>%
+  filter(Sales != 0) %>%
+  group_by(ym, AssortStore) %>%
+  summarise(total = sum(Sales)) %>%
+  ggplot(aes(x = ym, y = total, group = AssortStore, color = AssortStore)) +
+  geom_line() + geom_point()
+
+sqldf(
+  'select count(*)
+  from train
+  where Open = "1"
+  and Sales = 0')
+
+sqldf('select Assortment, StoreType, sum(Sales)/10
+      from train
+      group by Assortment, StoreType')
+
+sqldf('select Promo, sum(Sales)/10
+      from train
+      group by Promo')
+
+
+
+```
+
+
+Building the datasets
+
+```{r}
+
+train$Date = NULL
+test$Date = NULL
+train$StoreType = NULL
+test$StoreType = NULL
+train$Assortment = NULL
+test$Assortment = NULL
+train$ym = NULL
+
+
+test$ym = NULL
+
+trainG1 = train %>%
+  filter(Open == 1 & Sales != 0 & StoreAssort == "a_a")
+trainG1$Open = NULL
+trainG1$StoreAssort = NULL
+write.csv(trainG1, "trainG1.csv", row.names = FALSE)
+
+testG1 = test %>%
+  filter(Open == 1 & StoreAssort == "a_a")
+testG1$Open = NULL
+testG1$StoreAssort = NULL
+write.csv(testG1, "testG1.csv", row.names = FALSE)
+
+```
+
