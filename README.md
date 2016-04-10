@@ -29,9 +29,7 @@ The purpose of this competition was to predict the feature sales, for which the 
 The dataset includes promotions and also some information related to the distance from the competition stores, and also two types of store classification the features “StoreType” and “Assortment”. And all this data registered with the date.
 
 
-The date feature was divides in day, month, and year, in the case of day it was numerical, in this case it had been converted to categorical with the specific day of week.
-
-The feature “PromoInterval” has a range of months that had been changed from ex. 'Feb,May,Aug,Nov' to 'M_2_5_8_11' and then it has been used dummy vars to create the corresponding attributes.
+The date feature was divides in day, month, and year, in the case of day it was numerical, in this case it had been converted to categorical with the specific day of week. The feature “PromoInterval” has a range of months that had been changed from ex. 'Feb,May,Aug,Nov' to 'M_2_5_8_11' and then it has been used dummy vars to create the corresponding attributes.
 
 In the case of “StoreType” and “Assortment”, it had been merged in one attribute, it showed a kind of pattern that proved to be predictive.
 
