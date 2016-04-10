@@ -15,6 +15,7 @@ Business understanding
 
 From the competition site description:
 The purpose of this competition is to forecast sales using store, promotion, and competitor data. Rossmann operates over 3,000 drug stores in 7 European countries. Currently, Rossmann store managers are tasked with predicting their daily sales for up to six weeks in advance. Store sales are influenced by many factors, including promotions, competition, school and state holidays, seasonality, and locality. 
+
 With thousands of individual managers predicting sales based on their unique circumstances, the accuracy of results can be quite varied. In their first Kaggle competition, Rossmann is challenging you to predict 6 weeks of daily sales for 1,115 stores located across Germany. Reliable sales forecasts enable store managers to create effective staff schedules that increase productivity and motivation. By helping Rossmann create a robust prediction model, you will help store managers stay focused on what’s most important to them: their customers and their teams! 
 Data 
 
@@ -22,7 +23,7 @@ In the competition site where data is described and downloaded: https://www.kagg
 
 Data exploration 
 
-# PromoInterval has a range of months that had been changed from ex. 'Feb,May,Aug,Nov' to 'M_2_5_8_11' and then it has been used dummy vars to create the corresponding attributes.
+PromoInterval has a range of months that had been changed from ex. 'Feb,May,Aug,Nov' to 'M_2_5_8_11' and then it has been used dummy vars to create the corresponding attributes.
 
 The purpose of this competition was to predict the feature sales, for which the dataset has a lot of data related to the stores where those sales were made, the holydays where the store were closed, in this case depending on the region in Germany, where the stores are located spread in the country.
 
